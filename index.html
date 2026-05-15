@@ -3,21 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Sonsuz Noob Obby</title>
+    <title>Mily Sonsuz Obby Fix</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: 'Arial Black', sans-serif; touch-action: none; }
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 2px 2px #000; pointer-events: none; z-index: 10; }
-        #controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 100; }
-        .btn { width: 80px; height: 80px; background: rgba(255,255,255,0.4); border: 4px solid #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 30px; user-select: none; }
-        #jump-btn { background: #FF9800; color: white; width: 100px; height: 100px; font-size: 18px; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #87CEEB; touch-action: none; position: fixed; width: 100%; height: 100%; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        
+        /* ARAYÜZ VE BUTONLAR */
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; font-family: sans-serif; font-size: 24px; font-weight: bold; text-shadow: 2px 2px #000; pointer-events: none; z-index: 10; }
+        #controls { position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; z-index: 100; }
+        .btn-move { display: flex; gap: 20px; }
+        .btn { 
+            width: 85px; height: 85px; background: rgba(255,255,255,0.4); 
+            border: 5px solid #fff; border-radius: 20px; 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 40px; color: #000; user-select: none;
+        }
+        #jump-btn { 
+            background: #FF9800; color: white; width: 110px; height: 110px; 
+            border-radius: 50%; font-size: 20px; box-shadow: 0 8px 0 #E65100;
+        }
     </style>
 </head>
 <body>
 
-    <div id="ui">Puan: <span id="score">0</span> | Ölüm: <span id="deaths">0</span></div>
+    <div id="ui">Puan: <span id="score">0</span></div>
     
     <div id="controls">
-        <div style="display: flex; gap: 15px;">
+        <div class="btn-move">
             <div class="btn" id="lBtn">←</div>
             <div class="btn" id="rBtn">→</div>
         </div>
@@ -30,101 +42,94 @@
         const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
-        const deathEl = document.getElementById("deaths");
 
-        function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-        window.addEventListener('resize', resize); resize();
+        // Ekranı tam kapla ve nesneleri büyüt
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-        let player = { x: 100, y: 100, w: 30, h: 40, vx: 0, vy: 0, grounded: false, score: 0, deaths: 0 };
-        let cameraX = 0, gravity = 0.6, jumpPower = -14;
+        // Nesne Boyutlarını Ekrana Göre Büyütme Katsayısı
+        const S = canvas.width / 375; // Standart bir telefona göre ölçekle
+
+        let player = { x: 50, y: 0, w: 40, h: 55, vx: 0, vy: 0, grounded: false, score: 0 };
+        let cameraX = 0, gravity = 0.7, jumpPower = -16;
         let moveL = false, moveR = false;
         
         let platforms = [];
         let enemies = [];
         let lastPlatformX = 0;
 
-        // Platform Üretici
         function addPlatform() {
-            let width = 100 + Math.random() * 200;
-            let type = Math.random() > 0.7 ? 1 : 0; // %30 ihtimalle çivili
-            platforms.push({ x: lastPlatformX, y: canvas.height - 100 - Math.random() * 200, w: width, type: type });
+            let width = (150 + Math.random() * 200);
+            let yPos = canvas.height - (150 + Math.random() * (canvas.height/2));
+            let isSpiky = Math.random() > 0.75; // Çivi ihtimali
             
-            // Platform üstüne düşman ekle
-            if (Math.random() > 0.6 && platforms.length > 2) {
-                enemies.push({ x: lastPlatformX + 50, y: 0, vx: -2, w: 30, h: 30 });
+            platforms.push({ x: lastPlatformX, y: yPos, w: width, type: isSpiky ? 1 : 0 });
+            
+            // Düşman ekle
+            if (Math.random() > 0.6 && platforms.length > 1) {
+                enemies.push({ x: lastPlatformX + width/2, y: yPos - 40, vx: -2.5, w: 40, h: 40 });
             }
-            lastPlatformX += width + 50 + Math.random() * 100;
+            lastPlatformX += width + 80 + Math.random() * 100;
         }
 
-        // Başlangıç için platformlar
-        for(let i=0; i<10; i++) addPlatform();
+        // İlk platformlar
+        for(let i=0; i<8; i++) addPlatform();
 
-        const ctrl = (id, s, e) => {
+        // Dokunmatik Kontroller (Hızlı tepki için)
+        const bind = (id, s, e) => {
             const el = document.getElementById(id);
-            el.ontouchstart = (i) => { i.preventDefault(); s(); };
-            el.ontouchend = (i) => { i.preventDefault(); e(); };
+            el.addEventListener('touchstart', (i) => { i.preventDefault(); s(); }, {passive: false});
+            el.addEventListener('touchend', (i) => { i.preventDefault(); e(); }, {passive: false});
         };
-        ctrl('lBtn', () => moveL = true, () => moveL = false);
-        ctrl('rBtn', () => moveR = true, () => moveR = false);
-        ctrl('jump-btn', () => { if(player.grounded){ player.vy = jumpPower; player.grounded = false; } }, () => {});
+        bind('lBtn', () => moveL = true, () => moveL = false);
+        bind('rBtn', () => moveR = true, () => moveR = false);
+        bind('jump-btn', () => { if(player.grounded){ player.vy = jumpPower; player.grounded = false; } }, () => {});
 
         function reset() {
-            player.x = 100; player.y = 100; player.vy = 0; cameraX = 0;
-            player.deaths++; deathEl.textContent = player.deaths;
+            player.x = 50; player.y = 0; player.vy = 0; cameraX = 0;
             player.score = 0; scoreEl.textContent = "0";
             lastPlatformX = 0; platforms = []; enemies = [];
-            for(let i=0; i<10; i++) addPlatform();
+            for(let i=0; i<8; i++) addPlatform();
         }
 
         function update() {
-            player.vx = moveL ? -6 : (moveR ? 6 : 0);
+            player.vx = moveL ? -7 : (moveR ? 7 : 0);
             player.vy += gravity;
             player.x += player.vx;
             player.y += player.vy;
 
-            // Kamera Takibi
-            if (player.x > cameraX + canvas.width / 2) cameraX = player.x - canvas.width / 2;
+            if (player.x > cameraX + canvas.width / 3) cameraX = player.x - canvas.width / 3;
 
-            // Platform Çarpışma & Sonsuzluk
             player.grounded = false;
             platforms.forEach(p => {
                 if (player.x + player.w > p.x && player.x < p.x + p.w &&
-                    player.y + player.h > p.y && player.y + player.h < p.y + 20 && player.vy >= 0) {
-                    if(p.type === 1) reset(); // Çiviye bastı
+                    player.y + player.h > p.y && player.y + player.h < p.y + 25 && player.vy >= 0) {
+                    if(p.type === 1) reset(); // Çivi
                     player.y = p.y - player.h; player.vy = 0; player.grounded = true;
                 }
             });
 
-            // Düşman Hareket ve Çarpışma
-            enemies.forEach((en, index) => {
+            enemies.forEach((en, idx) => {
                 en.x += en.vx;
-                // Düşman yerçekimi (platform üzerinde kalsın)
-                let enGrounded = false;
-                platforms.forEach(p => {
-                    if (en.x + en.w > p.x && en.x < p.x + p.w && en.y + en.h > p.y && en.y + en.h < p.y + 20) {
-                        en.y = p.y - en.h; enGrounded = true;
-                    }
-                });
-                if(!enGrounded) en.y += 5;
-
                 // Oyuncu Düşman Çarpışması
                 if (player.x + player.w > en.x && player.x < en.x + en.w &&
                     player.y + player.h > en.y && player.y < en.y + en.h) {
-                    if (player.vy > 0) { // Üstüne atladı
-                        enemies.splice(index, 1);
-                        player.vy = -10;
-                    } else { reset(); } // Yandan çarptı
+                    if (player.vy > 0 && player.y + player.h < en.y + 20) { // Üstüne zıplama
+                        enemies.splice(idx, 1); player.vy = -12;
+                    } else { reset(); }
                 }
             });
 
-            // Yeni platformlar ekle
-            if (player.x > lastPlatformX - 1000) addPlatform();
+            if (player.x > lastPlatformX - 1200) addPlatform();
+            if (player.y > canvas.height + 100) reset();
+            
+            let curS = Math.floor(player.x / 100);
+            if(curS > player.score) { player.score = curS; scoreEl.textContent = player.score; }
 
-            // Puan güncelle
-            let curScore = Math.floor(player.x / 100);
-            if(curScore > player.score) { player.score = curScore; scoreEl.textContent = player.score; }
-
-            if (player.y > canvas.height) reset();
             draw();
             requestAnimationFrame(update);
         }
@@ -134,27 +139,29 @@
             ctx.save();
             ctx.translate(-cameraX, 0);
 
-            // Platformlar
+            // Platformlar (Büyük ve Net)
             platforms.forEach(p => {
-                ctx.fillStyle = p.type === 0 ? "#4CAF50" : "#555";
-                ctx.fillRect(p.x, p.y, p.w, 20);
-                if(p.type === 1) { // Çiviler
+                ctx.fillStyle = p.type === 0 ? "#4CAF50" : "#444";
+                ctx.fillRect(p.x, p.y, p.w, 40);
+                ctx.strokeStyle = "white"; ctx.lineWidth = 2; ctx.strokeRect(p.x, p.y, p.w, 40);
+                
+                if(p.type === 1) { // Çiviler (Büyük)
                     ctx.fillStyle = "red";
-                    for(let i=0; i<p.w; i+=15) {
-                        ctx.beginPath(); ctx.moveTo(p.x+i, p.y); ctx.lineTo(p.x+i+7, p.y-15); ctx.lineTo(p.x+i+14, p.y); ctx.fill();
+                    for(let i=0; i<p.w; i+=25) {
+                        ctx.beginPath(); ctx.moveTo(p.x+i, p.y); ctx.lineTo(p.x+i+12, p.y-25); ctx.lineTo(p.x+i+25, p.y); ctx.fill();
                     }
                 }
             });
 
-            // Düşmanlar (Angry Noobs)
+            // Düşmanlar (Büyük Siyah Noob)
             enemies.forEach(en => {
-                ctx.fillStyle = "black"; ctx.fillRect(en.x, en.y, en.w, en.h);
-                ctx.fillStyle = "red"; ctx.fillRect(en.x+5, en.y+5, 5, 5); ctx.fillRect(en.x+20, en.y+5, 5, 5);
+                ctx.fillStyle = "#000"; ctx.fillRect(en.x, en.y, en.w, en.h);
+                ctx.fillStyle = "red"; ctx.fillRect(en.x+8, en.y+8, 8, 8); ctx.fillRect(en.x+24, en.y+8, 8, 8);
             });
 
-            // Oyuncu (Noob)
-            ctx.fillStyle = "#FFD500"; ctx.fillRect(player.x + 5, player.y, 20, 15);
-            ctx.fillStyle = "#0059B3"; ctx.fillRect(player.x, player.y + 15, 30, 25);
+            // Oyuncu (Büyük Noob)
+            ctx.fillStyle = "#FFD500"; ctx.fillRect(player.x + 8, player.y, 24, 20); // Kafa
+            ctx.fillStyle = "#0059B3"; ctx.fillRect(player.x, player.y + 20, 40, 35); // Gövde
 
             ctx.restore();
         }

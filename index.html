@@ -1,43 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mily Roblox Obby - Final Fix</title>
+    <title>Mily Roblox - Touch Fix</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
         
-        /* JOYSTICK */
+        /* SOL TARAF: SADECE YÜRÜME ALANI */
+        #move-zone {
+            position: absolute; bottom: 0; left: 0; width: 50%; height: 70%; z-index: 100;
+        }
         #joystick-container { 
-            position: absolute; bottom: 30px; left: 30px; 
+            position: absolute; bottom: 40px; left: 40px; 
             width: 100px; height: 100px; background: rgba(255,255,255,0.2); 
-            border-radius: 50%; border: 3px solid white; z-index: 100; 
+            border-radius: 50%; border: 3px solid white; pointer-events: none;
         }
         #joystick-knob { 
             position: absolute; top: 30px; left: 30px; 
             width: 40px; height: 40px; background: white; border-radius: 50%; 
         }
 
-        /* ZIPLAMA BUTONU - DAHA BÜYÜK VE NET */
-        #jump-btn { 
-            position: absolute; bottom: 30px; right: 30px; 
+        /* SAĞ TARAF: SADECE ZIPLAMA ALANI */
+        #jump-zone {
+            position: absolute; bottom: 0; right: 0; width: 50%; height: 70%; z-index: 100;
+            display: flex; justify-content: center; align-items: center;
+        }
+        #jump-btn-visual { 
             width: 100px; height: 100px; background: rgba(255,255,255,0.5); 
             border: 5px solid #fff; border-radius: 50%; 
             color: white; font-weight: bold; font-size: 20px;
             display: flex; justify-content: center; align-items: center; 
-            z-index: 9999; /* HER ŞEYİN ÜSTÜNDE */
-            user-select: none;
-            touch-action: none;
-            -webkit-user-select: none;
+            pointer-events: none;
         }
 
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 2px 2px 4px #000; z-index: 10; font-size: 18px; }
+        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 2px 2px 4px #000; z-index: 10; }
     </style>
 </head>
 <body>
-    <div id="ui">Zıplama Butonu Fixlendi! Parkura Başla.</div>
-    <div id="joystick-container"><div id="joystick-knob"></div></div>
-    <div id="jump-btn">JUMP</div>
+    <div id="ui">Sol Taraf Yürütür, Sağ Taraf Zıplatır!</div>
+    
+    <div id="move-zone">
+        <div id="joystick-container"><div id="joystick-knob"></div></div>
+    </div>
+
+    <div id="jump-zone">
+        <div id="jump-btn-visual">JUMP</div>
+    </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
@@ -48,49 +57,41 @@
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
 
-        const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
-        scene.add(light);
-
-        // --- PARKUR BLOKLARI ---
+        // PARKUR
         const platforms = [];
         function createBox(x, y, z, w, h, d, color) {
-            const geo = new THREE.BoxGeometry(w, h, d);
-            const mat = new THREE.MeshPhongMaterial({ color: color });
-            const mesh = new THREE.Mesh(geo, mat);
+            const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshPhongMaterial({ color }));
             mesh.position.set(x, y, z);
-            scene.add(mesh);
-            platforms.push(mesh);
+            scene.add(mesh); platforms.push(mesh);
         }
-
         createBox(0, 0, 0, 6, 1, 6, 0x3a9d23); 
         createBox(0, 1.5, -10, 4, 1, 4, 0xff4444); 
         createBox(5, 3, -18, 4, 1, 4, 0x4444ff); 
         createBox(-5, 4.5, -26, 4, 1, 4, 0xffff44); 
-        createBox(0, 6, -35, 6, 1, 6, 0xff44ff); 
 
-        // --- KARAKTER ---
+        // KARAKTER
         const player = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.5), new THREE.MeshPhongMaterial({ color: 0x0055ff }));
-        body.position.y = 1;
-        player.add(body);
+        player.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.5), new THREE.MeshPhongMaterial({ color: 0x0055ff })));
         const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshPhongMaterial({ color: 0xffcc00 }));
-        head.position.y = 1.8;
-        player.add(head);
+        head.position.y = 0.8; player.add(head);
         scene.add(player);
 
         let vy = 0, isGrounded = false, mX = 0, mZ = 0;
 
-        // --- JOYSTICK ---
+        // --- SOL TARAF (YÜRÜME) MANTIĞI ---
+        const moveZone = document.getElementById('move-zone');
         const knob = document.getElementById('joystick-knob');
-        window.addEventListener('touchstart', (e) => { if(e.target.id !== 'jump-btn') handleJoy(e); }, {passive: false});
-        window.addEventListener('touchmove', (e) => { if(e.target.id !== 'jump-btn') handleJoy(e); }, {passive: false});
-        window.addEventListener('touchend', () => { mX = 0; mZ = 0; knob.style.left = '30px'; knob.style.top = '30px'; });
+        
+        moveZone.addEventListener('touchstart', handleMove, {passive: false});
+        moveZone.addEventListener('touchmove', handleMove, {passive: false});
+        moveZone.addEventListener('touchend', () => { mX = 0; mZ = 0; knob.style.left = '30px'; knob.style.top = '30px'; });
 
-        function handleJoy(e) {
-            const r = document.getElementById('joystick-container').getBoundingClientRect();
+        function handleMove(e) {
+            const r = moveZone.getBoundingClientRect();
             const t = e.touches[0];
-            let x = t.clientX - r.left - 50, y = t.clientY - r.top - 50;
+            let x = t.clientX - 90, y = t.clientY - (window.innerHeight - 90); // Joystick merkez ayarı
             const d = Math.sqrt(x*x + y*y);
             if (d > 50) { x *= 50/d; y *= 50/d; }
             knob.style.left = (x + 30) + 'px'; knob.style.top = (y + 30) + 'px';
@@ -98,38 +99,26 @@
             e.preventDefault();
         }
 
-        // --- ZIPLAMA BUTONU (KESİN ÇALIŞAN VERSİYON) ---
-        const jumpBtn = document.getElementById('jump-btn');
-        function doJump(e) {
-            if (isGrounded) {
-                vy = 0.18; // Zıplama gücü
-                isGrounded = false;
-            }
-            if(e) e.preventDefault();
-        }
+        // --- SAĞ TARAF (ZIPLAMA) MANTIĞI ---
+        const jumpZone = document.getElementById('jump-zone');
+        jumpZone.addEventListener('touchstart', (e) => {
+            if (isGrounded) { vy = 0.18; isGrounded = false; }
+            e.preventDefault();
+        }, {passive: false});
 
-        jumpBtn.addEventListener('touchstart', doJump, {passive: false});
-        jumpBtn.addEventListener('mousedown', doJump);
-
-        // --- OYUN DÖNGÜSÜ ---
         function animate() {
             requestAnimationFrame(animate);
-
-            vy -= 0.009; // Yerçekimi
+            vy -= 0.009;
             player.position.y += vy;
             player.position.x += mX * 0.15;
             player.position.z += mZ * 0.15;
 
             isGrounded = false;
             platforms.forEach(p => {
-                const pW = p.geometry.parameters.width / 2 + 0.4;
-                const pD = p.geometry.parameters.depth / 2 + 0.4;
-                if (Math.abs(player.position.x - p.position.x) < pW &&
-                    Math.abs(player.position.z - p.position.z) < pD &&
+                if (Math.abs(player.position.x - p.position.x) < p.geometry.parameters.width/2+0.4 &&
+                    Math.abs(player.position.z - p.position.z) < p.geometry.parameters.depth/2+0.4 &&
                     player.position.y > p.position.y && player.position.y < p.position.y + 1.2) {
-                    player.position.y = p.position.y + 0.5;
-                    vy = 0;
-                    isGrounded = true;
+                    player.position.y = p.position.y + 0.5; vy = 0; isGrounded = true;
                 }
             });
 

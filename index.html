@@ -1,131 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mily Roblox - Touch Fix</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <title>Roblox Obby Fix</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
+        canvas { display: block; }
         
-        /* SOL TARAF: SADECE YÜRÜME ALANI */
-        #move-zone {
-            position: absolute; bottom: 0; left: 0; width: 50%; height: 70%; z-index: 100;
-        }
-        #joystick-container { 
-            position: absolute; bottom: 40px; left: 40px; 
-            width: 100px; height: 100px; background: rgba(255,255,255,0.2); 
-            border-radius: 50%; border: 3px solid white; pointer-events: none;
-        }
-        #joystick-knob { 
-            position: absolute; top: 30px; left: 30px; 
-            width: 40px; height: 40px; background: white; border-radius: 50%; 
-        }
-
-        /* SAĞ TARAF: SADECE ZIPLAMA ALANI */
-        #jump-zone {
-            position: absolute; bottom: 0; right: 0; width: 50%; height: 70%; z-index: 100;
-            display: flex; justify-content: center; align-items: center;
-        }
-        #jump-btn-visual { 
-            width: 100px; height: 100px; background: rgba(255,255,255,0.5); 
-            border: 5px solid #fff; border-radius: 50%; 
-            color: white; font-weight: bold; font-size: 20px;
-            display: flex; justify-content: center; align-items: center; 
-            pointer-events: none;
-        }
-
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 2px 2px 4px #000; z-index: 10; }
+        /* KONTROL PANELİ */
+        #controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 1000; }
+        .btn { width: 70px; height: 70px; background: rgba(255,255,255,0.4); border: 3px solid white; border-radius: 15px; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; user-select: none; }
+        #jump-btn { background: rgba(255,165,0,0.6); width: 90px; height: 90px; border-radius: 50%; font-size: 20px; }
+        
+        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 2px 2px #000; pointer-events: none; }
     </style>
 </head>
 <body>
-    <div id="ui">Sol Taraf Yürütür, Sağ Taraf Zıplatır!</div>
+    <div id="ui">BUTONLARLA OYNA (Zıplama Turuncu Buton)</div>
     
-    <div id="move-zone">
-        <div id="joystick-container"><div id="joystick-knob"></div></div>
+    <div id="controls">
+        <div style="display: flex; gap: 10px;">
+            <div class="btn" id="left-btn">←</div>
+            <div class="btn" id="forward-btn">↑</div>
+            <div class="btn" id="right-btn">→</div>
+        </div>
+        <div class="btn" id="jump-btn">JUMP</div>
     </div>
 
-    <div id="jump-zone">
-        <div id="jump-btn-visual">JUMP</div>
-    </div>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
     <script>
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: false }); // Performans için kapalı
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
-        scene.add(new THREE.HemisphereLight(0xffffff, 0x444444, 1.2));
 
-        // PARKUR
+        scene.add(new THREE.AmbientLight(0xffffff, 1));
+
+        // Platformlar
         const platforms = [];
-        function createBox(x, y, z, w, h, d, color) {
-            const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshPhongMaterial({ color }));
-            mesh.position.set(x, y, z);
-            scene.add(mesh); platforms.push(mesh);
+        function addBox(x,y,z,w,d,c) {
+            const m = new THREE.Mesh(new THREE.BoxGeometry(w,1,d), new THREE.MeshBasicMaterial({color:c}));
+            m.position.set(x,y,z); scene.add(m); platforms.push(m);
         }
-        createBox(0, 0, 0, 6, 1, 6, 0x3a9d23); 
-        createBox(0, 1.5, -10, 4, 1, 4, 0xff4444); 
-        createBox(5, 3, -18, 4, 1, 4, 0x4444ff); 
-        createBox(-5, 4.5, -26, 4, 1, 4, 0xffff44); 
+        addBox(0,0,0,5,5,0x3a9d23); addBox(0,1.5,-8,3,3,0xff0000); addBox(4,3,-15,3,3,0x0000ff);
 
-        // KARAKTER
-        const player = new THREE.Group();
-        player.add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.5), new THREE.MeshPhongMaterial({ color: 0x0055ff })));
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshPhongMaterial({ color: 0xffcc00 }));
-        head.position.y = 0.8; player.add(head);
-        scene.add(player);
+        // Karakter
+        const player = new THREE.Mesh(new THREE.BoxGeometry(0.7,1.5,0.7), new THREE.MeshBasicMaterial({color:0xffff00}));
+        player.position.y = 2; scene.add(player);
 
-        let vy = 0, isGrounded = false, mX = 0, mZ = 0;
+        let vy = 0, grounded = false, move = {f:0, l:0, r:0};
 
-        // --- SOL TARAF (YÜRÜME) MANTIĞI ---
-        const moveZone = document.getElementById('move-zone');
-        const knob = document.getElementById('joystick-knob');
-        
-        moveZone.addEventListener('touchstart', handleMove, {passive: false});
-        moveZone.addEventListener('touchmove', handleMove, {passive: false});
-        moveZone.addEventListener('touchend', () => { mX = 0; mZ = 0; knob.style.left = '30px'; knob.style.top = '30px'; });
-
-        function handleMove(e) {
-            const r = moveZone.getBoundingClientRect();
-            const t = e.touches[0];
-            let x = t.clientX - 90, y = t.clientY - (window.innerHeight - 90); // Joystick merkez ayarı
-            const d = Math.sqrt(x*x + y*y);
-            if (d > 50) { x *= 50/d; y *= 50/d; }
-            knob.style.left = (x + 30) + 'px'; knob.style.top = (y + 30) + 'px';
-            mX = x / 50; mZ = y / 50;
-            e.preventDefault();
-        }
-
-        // --- SAĞ TARAF (ZIPLAMA) MANTIĞI ---
-        const jumpZone = document.getElementById('jump-zone');
-        jumpZone.addEventListener('touchstart', (e) => {
-            if (isGrounded) { vy = 0.18; isGrounded = false; }
-            e.preventDefault();
-        }, {passive: false});
+        // Kontroller
+        const setBtn = (id, key, val) => {
+            const b = document.getElementById(id);
+            b.ontouchstart = (e) => { e.preventDefault(); if(key==='j'){ if(grounded){vy=0.18; grounded=false;} } else move[key]=val; };
+            b.ontouchend = (e) => { e.preventDefault(); if(key!=='j') move[key]=0; };
+        };
+        setBtn('left-btn', 'l', 0.1); setBtn('right-btn', 'r', 0.1); setBtn('forward-btn', 'f', 0.1); setBtn('jump-btn', 'j', 0);
 
         function animate() {
             requestAnimationFrame(animate);
-            vy -= 0.009;
-            player.position.y += vy;
-            player.position.x += mX * 0.15;
-            player.position.z += mZ * 0.15;
+            vy -= 0.009; player.position.y += vy;
+            player.position.z -= move.f; player.position.x -= move.l; player.position.x += move.r;
 
-            isGrounded = false;
+            grounded = false;
             platforms.forEach(p => {
-                if (Math.abs(player.position.x - p.position.x) < p.geometry.parameters.width/2+0.4 &&
-                    Math.abs(player.position.z - p.position.z) < p.geometry.parameters.depth/2+0.4 &&
-                    player.position.y > p.position.y && player.position.y < p.position.y + 1.2) {
-                    player.position.y = p.position.y + 0.5; vy = 0; isGrounded = true;
+                if(Math.abs(player.position.x-p.position.x)<p.geometry.parameters.width/2+0.3 && 
+                   Math.abs(player.position.z-p.position.z)<p.geometry.parameters.depth/2+0.3 && 
+                   player.position.y > p.position.y && player.position.y < p.position.y+1.2) {
+                    player.position.y = p.position.y + 1; vy = 0; grounded = true;
                 }
             });
 
-            if (player.position.y < -20) { player.position.set(0, 5, 0); vy = 0; }
-            if (Math.abs(mX) > 0.1 || Math.abs(mZ) > 0.1) player.rotation.y = Math.atan2(mX, mZ);
-
-            camera.position.lerp(new THREE.Vector3(player.position.x, player.position.y + 7, player.position.z + 13), 0.1);
+            if(player.position.y < -10) { player.position.set(0,5,0); vy=0; }
+            camera.position.set(player.position.x, player.position.y+5, player.position.z+10);
             camera.lookAt(player.position);
             renderer.render(scene, camera);
         }

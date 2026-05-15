@@ -1,24 +1,47 @@
+<!DOCTYPE html>
 <html>
 <head>
-    <title>Mily Roblox 3D - Yürüme</title>
+    <title>Mily Roblox Obby - Fix</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
-        #joystick-container { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; border: 2px solid white; touch-action: none; }
-        #joystick-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: white; border-radius: 50%; }
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; pointer-events: none; text-shadow: 1px 1px 2px black; }
+        
+        /* SOLDAKİ JOYSTICK */
+        #joystick-container { 
+            position: absolute; bottom: 30px; left: 30px; 
+            width: 90px; height: 90px; background: rgba(255,255,255,0.2); 
+            border-radius: 50%; border: 2px solid white; z-index: 999; 
+        }
+        #joystick-knob { 
+            position: absolute; top: 25px; left: 25px; 
+            width: 40px; height: 40px; background: white; border-radius: 50%; 
+        }
+
+        /* SAĞDAKİ BÜYÜK ZIPLAMA BUTONU */
+        #jump-btn { 
+            position: absolute; bottom: 40px; right: 40px; 
+            width: 80px; height: 80px; background: rgba(255,255,255,0.4); 
+            border: 4px solid white; border-radius: 50%; 
+            color: white; font-weight: bold; font-size: 18px;
+            display: flex; justify-content: center; align-items: center; 
+            z-index: 1000; /* En üst katman */
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 1px 1px 2px black; z-index: 10; }
     </style>
 </head>
 <body>
-    <div id="ui">Sol Alttaki Kolla Karakteri Yürüt!</div>
-    <div id="joystick-container">
-        <div id="joystick-knob"></div>
-    </div>
+    <div id="ui">Zıplama Butonu Eklendi! Parkuru Bitir.</div>
+    <div id="joystick-container"><div id="joystick-knob"></div></div>
+    
+    <div id="jump-btn">JUMP</div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        // 1. SAHNE AYARLARI
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -26,94 +49,94 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Işık
         const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         scene.add(light);
 
-        // Zemin (Baseplate)
-        const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({ color: 0x3a9d23 }));
-        ground.rotation.x = -Math.PI / 2;
-        scene.add(ground);
-
-        // 2. ROBLOX KARAKTERİ (NOOB)
-        const playerGroup = new THREE.Group();
-        
-        // Gövde (Mavi)
-        const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), new THREE.MeshPhongMaterial({ color: 0x0059b3 }));
-        body.position.y = 1.1;
-        playerGroup.add(body);
-
-        // Kafa (Sarı)
-        const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.MeshPhongMaterial({ color: 0xffd500 }));
-        head.position.y = 2;
-        playerGroup.add(head);
-
-        // Bacaklar (Yeşil)
-        const legGeo = new THREE.BoxGeometry(0.45, 0.5, 0.45);
-        const legMat = new THREE.MeshPhongMaterial({ color: 0x248024 });
-        const leftLeg = new THREE.Mesh(legGeo, legMat);
-        leftLeg.position.set(-0.25, 0.25, 0);
-        playerGroup.add(leftLeg);
-        const rightLeg = new THREE.Mesh(legGeo, legMat);
-        rightLeg.position.set(0.25, 0.25, 0);
-        playerGroup.add(rightLeg);
-
-        scene.add(playerGroup);
-        camera.position.set(0, 5, 8);
-
-        // 3. JOYSTICK KONTROLLERİ
-        const knob = document.getElementById('joystick-knob');
-        let moveX = 0, moveZ = 0;
-
-        window.addEventListener('touchstart', (e) => handleMove(e));
-        window.addEventListener('touchmove', (e) => handleMove(e));
-        window.addEventListener('touchend', () => {
-            knob.style.top = '25px'; knob.style.left = '25px';
-            moveX = 0; moveZ = 0;
-        });
-
-        function handleMove(e) {
-            const container = document.getElementById('joystick-container').getBoundingClientRect();
-            const touch = e.touches[0];
-            let x = touch.clientX - container.left - 50;
-            let y = touch.clientY - container.top - 50;
-            
-            const dist = Math.sqrt(x*x + y*y);
-            if (dist > 50) { x *= 50/dist; y *= 50/dist; }
-            
-            knob.style.left = (x + 25) + 'px';
-            knob.style.top = (y + 25) + 'px';
-            
-            moveX = x / 50;
-            moveZ = y / 50;
+        // --- PLATFORMLAR ---
+        const platforms = [];
+        function createBox(x, y, z, w, h, d, color) {
+            const geo = new THREE.BoxGeometry(w, h, d);
+            const mat = new THREE.MeshPhongMaterial({ color: color });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(x, y, z);
+            scene.add(mesh);
+            platforms.push(mesh);
         }
 
-        // 4. OYUN DÖNGÜSÜ (Yürüme burada oluyor)
+        createBox(0, 0, 0, 5, 1, 5, 0x3a9d23); 
+        createBox(0, 1, -8, 3, 1, 3, 0xff0000); 
+        createBox(4, 2, -15, 3, 1, 3, 0x0000ff); 
+        createBox(-4, 3, -22, 3, 1, 3, 0xffff00); 
+        createBox(0, 4, -30, 5, 1, 5, 0xff00ff); 
+
+        // --- KARAKTER ---
+        const player = new THREE.Group();
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1, 0.5), new THREE.MeshPhongMaterial({ color: 0x0059b3 }));
+        body.position.y = 1;
+        player.add(body);
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), new THREE.MeshPhongMaterial({ color: 0xffd500 }));
+        head.position.y = 1.8;
+        player.add(head);
+        scene.add(player);
+
+        let vy = 0, isGrounded = false, moveX = 0, moveZ = 0;
+
+        // --- JOYSTICK ---
+        const knob = document.getElementById('joystick-knob');
+        window.addEventListener('touchstart', (e) => { if(e.target.id !== 'jump-btn') handleJoystick(e); });
+        window.addEventListener('touchmove', (e) => { if(e.target.id !== 'jump-btn') handleJoystick(e); });
+        window.addEventListener('touchend', () => { moveX = 0; moveZ = 0; knob.style.left = '25px'; knob.style.top = '25px'; });
+
+        function handleJoystick(e) {
+            const rect = document.getElementById('joystick-container').getBoundingClientRect();
+            const t = e.touches[0];
+            let x = t.clientX - rect.left - 45;
+            let y = t.clientY - rect.top - 45;
+            const d = Math.sqrt(x*x + y*y);
+            if (d > 45) { x *= 45/d; y *= 45/d; }
+            knob.style.left = (x + 25) + 'px'; knob.style.top = (y + 25) + 'px';
+            moveX = x / 45; moveZ = y / 45;
+        }
+
+        // --- ZIPLAMA TUŞU AKTİFLEŞTİRME ---
+        const jumpBtn = document.getElementById('jump-btn');
+        const doJump = (e) => {
+            if (isGrounded) {
+                vy = 0.16;
+                isGrounded = false;
+            }
+            e.preventDefault();
+        };
+        jumpBtn.addEventListener('touchstart', doJump);
+        jumpBtn.addEventListener('mousedown', doJump);
+
+        // --- DÖNGÜ ---
         function animate() {
             requestAnimationFrame(animate);
 
-            if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
-                // Karakteri hareket ettir
-                playerGroup.position.x += moveX * 0.1;
-                playerGroup.position.z += moveZ * 0.1;
+            vy -= 0.008; // Yerçekimi
+            player.position.y += vy;
+            player.position.x += moveX * 0.12;
+            player.position.z += moveZ * 0.12;
 
-                // Karakteri gittiği yöne döndür
-                const angle = Math.atan2(moveX, moveZ);
-                playerGroup.rotation.y = angle;
+            isGrounded = false;
+            platforms.forEach(p => {
+                if (Math.abs(player.position.x - p.position.x) < (p.geometry.parameters.width/2 + 0.4) &&
+                    Math.abs(player.position.z - p.position.z) < (p.geometry.parameters.depth/2 + 0.4) &&
+                    player.position.y > p.position.y && player.position.y < p.position.y + 1.2) {
+                    player.position.y = p.position.y + 0.5;
+                    vy = 0;
+                    isGrounded = true;
+                }
+            });
 
-                // Yürüme animasyonu (Bacakları salla)
-                leftLeg.rotation.x = Math.sin(Date.now() * 0.01) * 0.5;
-                rightLeg.rotation.x = -Math.sin(Date.now() * 0.01) * 0.5;
-            }
+            if (player.position.y < -15) { player.position.set(0, 5, 0); vy = 0; }
+            if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) player.rotation.y = Math.atan2(moveX, moveZ);
 
-            // Kamera karakteri takip etsin
-            camera.position.x = playerGroup.position.x;
-            camera.position.z = playerGroup.position.z + 8;
-            camera.lookAt(playerGroup.position);
-
+            camera.position.lerp(new THREE.Vector3(player.position.x, player.position.y + 6, player.position.z + 12), 0.1);
+            camera.lookAt(player.position);
             renderer.render(scene, camera);
         }
-
         animate();
     </script>
 </body>

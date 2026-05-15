@@ -1,77 +1,121 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Mily Roblox 3D</title>
+    <title>Mily Roblox 3D - Yürüme</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; }
-        canvas { display: block; }
-        #ui { position: absolute; bottom: 20px; width: 100%; text-align: center; color: white; font-family: sans-serif; pointer-events: none; }
+        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; }
+        #joystick-container { position: absolute; bottom: 40px; left: 40px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; border: 2px solid white; touch-action: none; }
+        #joystick-knob { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: white; border-radius: 50%; }
+        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; pointer-events: none; text-shadow: 1px 1px 2px black; }
     </style>
 </head>
 <body>
-    <div id="ui">Ekrana Dokun ve Bakış Açısını Değiştir</div>
+    <div id="ui">Sol Alttaki Kolla Karakteri Yürüt!</div>
+    <div id="joystick-container">
+        <div id="joystick-knob"></div>
+    </div>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <script>
-        // 1. Sahne, Kamera ve Render Ayarları
+        // 1. SAHNE AYARLARI
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Roblox gökyüzü mavisi
-        
+        scene.background = new THREE.Color(0x87CEEB);
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // 2. Işıklandırma (Dünyanın aydınlık görünmesi için)
-        const light = new THREE.DirectionalLight(0xffffff, 1);
-        light.position.set(5, 10, 7.5);
+        // Işık
+        const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1);
         scene.add(light);
-        scene.add(new THREE.AmbientLight(0x404040));
 
-        // 3. Zemin (Roblox Baseplate gibi)
-        const groundGeo = new THREE.PlaneGeometry(20, 20);
-        const groundMat = new THREE.MeshPhongMaterial({ color: 0x3a9d23 }); // Yeşil çimen
-        const ground = new THREE.Mesh(groundGeo, groundMat);
+        // Zemin (Baseplate)
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.MeshPhongMaterial({ color: 0x3a9d23 }));
         ground.rotation.x = -Math.PI / 2;
         scene.add(ground);
 
-        // 4. Karakter (Roblox Bloğu)
-        const charGeo = new THREE.BoxGeometry(1, 2, 1); // 1x2x1 boyutunda blok
-        const charMat = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Kırmızı gövde
-        const player = new THREE.Mesh(charGeo, charMat);
-        player.position.y = 1; // Zeminin üstünde dursun
-        scene.add(player);
+        // 2. ROBLOX KARAKTERİ (NOOB)
+        const playerGroup = new THREE.Group();
+        
+        // Gövde (Mavi)
+        const body = new THREE.Mesh(new THREE.BoxGeometry(1, 1.2, 0.6), new THREE.MeshPhongMaterial({ color: 0x0059b3 }));
+        body.position.y = 1.1;
+        playerGroup.add(body);
 
-        camera.position.set(0, 5, 10);
-        camera.lookAt(player.position);
+        // Kafa (Sarı)
+        const head = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.6), new THREE.MeshPhongMaterial({ color: 0xffd500 }));
+        head.position.y = 2;
+        playerGroup.add(head);
 
-        // 5. Hareket ve Animasyon
+        // Bacaklar (Yeşil)
+        const legGeo = new THREE.BoxGeometry(0.45, 0.5, 0.45);
+        const legMat = new THREE.MeshPhongMaterial({ color: 0x248024 });
+        const leftLeg = new THREE.Mesh(legGeo, legMat);
+        leftLeg.position.set(-0.25, 0.25, 0);
+        playerGroup.add(leftLeg);
+        const rightLeg = new THREE.Mesh(legGeo, legMat);
+        rightLeg.position.set(0.25, 0.25, 0);
+        playerGroup.add(rightLeg);
+
+        scene.add(playerGroup);
+        camera.position.set(0, 5, 8);
+
+        // 3. JOYSTICK KONTROLLERİ
+        const knob = document.getElementById('joystick-knob');
+        let moveX = 0, moveZ = 0;
+
+        window.addEventListener('touchstart', (e) => handleMove(e));
+        window.addEventListener('touchmove', (e) => handleMove(e));
+        window.addEventListener('touchend', () => {
+            knob.style.top = '25px'; knob.style.left = '25px';
+            moveX = 0; moveZ = 0;
+        });
+
+        function handleMove(e) {
+            const container = document.getElementById('joystick-container').getBoundingClientRect();
+            const touch = e.touches[0];
+            let x = touch.clientX - container.left - 50;
+            let y = touch.clientY - container.top - 50;
+            
+            const dist = Math.sqrt(x*x + y*y);
+            if (dist > 50) { x *= 50/dist; y *= 50/dist; }
+            
+            knob.style.left = (x + 25) + 'px';
+            knob.style.top = (y + 25) + 'px';
+            
+            moveX = x / 50;
+            moveZ = y / 50;
+        }
+
+        // 4. OYUN DÖNGÜSÜ (Yürüme burada oluyor)
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Karakteri yavaşça döndürelim (Roblox'ta duran bir eşya gibi)
-            player.rotation.y += 0.01;
-            
+
+            if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
+                // Karakteri hareket ettir
+                playerGroup.position.x += moveX * 0.1;
+                playerGroup.position.z += moveZ * 0.1;
+
+                // Karakteri gittiği yöne döndür
+                const angle = Math.atan2(moveX, moveZ);
+                playerGroup.rotation.y = angle;
+
+                // Yürüme animasyonu (Bacakları salla)
+                leftLeg.rotation.x = Math.sin(Date.now() * 0.01) * 0.5;
+                rightLeg.rotation.x = -Math.sin(Date.now() * 0.01) * 0.5;
+            }
+
+            // Kamera karakteri takip etsin
+            camera.position.x = playerGroup.position.x;
+            camera.position.z = playerGroup.position.z + 8;
+            camera.lookAt(playerGroup.position);
+
             renderer.render(scene, camera);
         }
 
-        // Mobil Dokunma Kontrolü (Bakış açısını biraz oynatır)
-        window.addEventListener('touchmove', (e) => {
-            let touch = e.touches[0];
-            camera.position.x = (touch.clientX / window.innerWidth - 0.5) * 10;
-            camera.lookAt(player.position);
-        });
-
         animate();
-
-        // Ekran boyutu değişirse uyarla
-        window.onresize = function () {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        };
     </script>
 </body>
 </html>

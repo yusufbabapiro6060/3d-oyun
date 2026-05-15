@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mily Roblox 3D</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+    <style>
+        body { margin: 0; overflow: hidden; background: #87CEEB; }
+        canvas { display: block; }
+        #ui { position: absolute; bottom: 20px; width: 100%; text-align: center; color: white; font-family: sans-serif; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <div id="ui">Ekrana Dokun ve Bakış Açısını Değiştir</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+    <script>
+        // 1. Sahne, Kamera ve Render Ayarları
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x87CEEB); // Roblox gökyüzü mavisi
+        
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // 2. Işıklandırma (Dünyanın aydınlık görünmesi için)
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(5, 10, 7.5);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x404040));
+
+        // 3. Zemin (Roblox Baseplate gibi)
+        const groundGeo = new THREE.PlaneGeometry(20, 20);
+        const groundMat = new THREE.MeshPhongMaterial({ color: 0x3a9d23 }); // Yeşil çimen
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        scene.add(ground);
+
+        // 4. Karakter (Roblox Bloğu)
+        const charGeo = new THREE.BoxGeometry(1, 2, 1); // 1x2x1 boyutunda blok
+        const charMat = new THREE.MeshPhongMaterial({ color: 0xff0000 }); // Kırmızı gövde
+        const player = new THREE.Mesh(charGeo, charMat);
+        player.position.y = 1; // Zeminin üstünde dursun
+        scene.add(player);
+
+        camera.position.set(0, 5, 10);
+        camera.lookAt(player.position);
+
+        // 5. Hareket ve Animasyon
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Karakteri yavaşça döndürelim (Roblox'ta duran bir eşya gibi)
+            player.rotation.y += 0.01;
+            
+            renderer.render(scene, camera);
+        }
+
+        // Mobil Dokunma Kontrolü (Bakış açısını biraz oynatır)
+        window.addEventListener('touchmove', (e) => {
+            let touch = e.touches[0];
+            camera.position.x = (touch.clientX / window.innerWidth - 0.5) * 10;
+            camera.lookAt(player.position);
+        });
+
+        animate();
+
+        // Ekran boyutu değişirse uyarla
+        window.onresize = function () {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+    </script>
+</body>
+</html>

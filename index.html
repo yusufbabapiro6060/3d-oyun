@@ -1,107 +1,116 @@
 <!DOCTYPE html>
-<html>
+<html lang="tr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Mily Obby Final</title>
+    <title>Mily Roblox 2D</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; background: linear-gradient(#87CEEB, #E0F7FA); }
+        body { margin: 0; padding: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
+        canvas { display: block; background: #87CEEB; }
         
-        /* BUTONLAR - EKRANIN EN ÜSTÜNDE */
-        #controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; z-index: 9999; }
-        .move-btns { display: flex; gap: 15px; }
+        /* KONTROL BUTONLARI */
+        #controls { 
+            position: absolute; bottom: 20px; width: 100%; 
+            display: flex; justify-content: space-between; 
+            padding: 0 20px; box-sizing: border-box; z-index: 100;
+        }
+        .btn-group { display: flex; gap: 10px; }
         .btn { 
-            width: 80px; height: 80px; background: rgba(255,255,255,0.6); 
-            border: 4px solid #fff; border-radius: 20px; 
+            width: 70px; height: 70px; background: rgba(255,255,255,0.5); 
+            border: 4px solid #fff; border-radius: 15px; 
             display: flex; justify-content: center; align-items: center; 
             font-size: 30px; font-weight: bold; color: #333;
             user-select: none; -webkit-user-select: none;
         }
         #jump-btn { 
-            background: #FF9800; color: white; width: 100px; height: 100px; border-radius: 50%; border: 5px solid #fff; 
-            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            background: #FF9800; color: white; width: 90px; height: 90px; 
+            border-radius: 50%; font-size: 20px;
         }
     </style>
 </head>
 <body>
 
     <div id="controls">
-        <div class="move-btns">
-            <div class="btn" id="btnL">←</div>
-            <div class="btn" id="btnR">→</div>
+        <div class="btn-group">
+            <div class="btn" id="leftBtn">←</div>
+            <div class="btn" id="rightBtn">→</div>
         </div>
-        <div class="btn" id="jump-btn">UP</div>
+        <div class="btn" id="jump-btn">ZIPLA</div>
     </div>
 
-    <canvas id="game"></canvas>
+    <canvas id="gameCanvas"></canvas>
 
     <script>
-        const canvas = document.getElementById("game");
+        const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
 
-        // OYUN AYARLARI
-        let px = 50, py = 300, vy = 0, speed = 0;
-        let gravity = 0.5;
-        let jumpPower = -12;
-        let isGrounded = false;
+        // Ekran boyutunu ayarla
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
 
-        // PLATFORMLAR (x, y, genişlik)
-        const platforms = [
-            {x: 0, y: 500, w: 200},
-            {x: 250, y: 400, w: 150},
-            {x: 500, y: 300, w: 150},
-            {x: 750, y: 450, w: 150},
-            {x: 1000, y: 350, w: 200}
+        // Oyun Değişkenleri
+        let player = { x: 50, y: 100, w: 30, h: 40, vx: 0, vy: 0, grounded: false };
+        let gravity = 0.6;
+        let jumpPower = -13;
+        let moveLeft = false;
+        let moveRight = false;
+
+        // Parkur Blokları
+        let platforms = [
+            { x: 0, y: canvas.height - 100, w: 200, h: 40 },
+            { x: 250, y: canvas.height - 180, w: 120, h: 30 },
+            { x: 100, y: canvas.height - 280, w: 120, h: 30 },
+            { x: 300, y: canvas.height - 380, w: 150, h: 30 },
+            { x: 50, y: canvas.height - 480, w: 100, h: 30 }
         ];
 
-        // KONTROLLER
-        const keys = { L: false, R: false };
-
-        // ZIPLAMA FONKSİYONU (DOĞRUDAN TETİKLENİR)
-        function doJump() {
-            if (isGrounded) {
-                vy = jumpPower;
-                isGrounded = false;
-            }
-        }
-
-        // DOKUNMATİK OLAYLARI
-        document.getElementById("btnL").ontouchstart = (e) => { e.preventDefault(); keys.L = true; };
-        document.getElementById("btnL").ontouchend = () => keys.L = false;
-        
-        document.getElementById("btnR").ontouchstart = (e) => { e.preventDefault(); keys.R = true; };
-        document.getElementById("btnR").ontouchend = () => keys.R = false;
-
-        document.getElementById("jump-btn").ontouchstart = (e) => {
-            e.preventDefault();
-            doJump();
+        // Buton Kontrolleri
+        const setupBtn = (id, startFn, endFn) => {
+            const el = document.getElementById(id);
+            el.addEventListener('touchstart', (e) => { e.preventDefault(); startFn(); });
+            el.addEventListener('touchend', (e) => { e.preventDefault(); endFn(); });
+            el.addEventListener('mousedown', startFn);
+            el.addEventListener('mouseup', endFn);
         };
 
-        function update() {
-            // Hareket
-            if (keys.L) speed = -5;
-            else if (keys.R) speed = 5;
-            else speed = 0;
+        setupBtn('leftBtn', () => moveLeft = true, () => moveLeft = false);
+        setupBtn('rightBtn', () => moveRight = true, () => moveRight = false);
+        setupBtn('jump-btn', () => { 
+            if (player.grounded) {
+                player.vy = jumpPower;
+                player.grounded = false;
+            }
+        }, () => {});
 
-            px += speed;
-            vy += gravity;
-            py += vy;
+        function update() {
+            // Hareket Hesaplama
+            if (moveLeft) player.vx = -5;
+            else if (moveRight) player.vx = 5;
+            else player.vx = 0;
+
+            player.vy += gravity;
+            player.x += player.vx;
+            player.y += player.vy;
 
             // Platform Çarpışması
-            isGrounded = false;
-            platforms.forEach(p => {
-                if (px + 30 > p.x && px < p.x + p.w && py + 40 > p.y && py + 40 < p.y + 20 && vy >= 0) {
-                    py = p.y - 40;
-                    vy = 0;
-                    isGrounded = true;
+            player.grounded = false;
+            for (let p of platforms) {
+                if (player.x + player.w > p.x && player.x < p.x + p.w &&
+                    player.y + player.h > p.y && player.y + player.h < p.y + p.h + 10 && player.vy >= 0) {
+                    player.y = p.y - player.h;
+                    player.vy = 0;
+                    player.grounded = true;
                 }
-            });
+            }
 
             // Düştüyse başa dön
-            if (py > canvas.height) { px = 50; py = 300; vy = 0; }
+            if (player.y > canvas.height) {
+                player.x = 50; player.y = 100; player.vy = 0;
+            }
 
             draw();
             requestAnimationFrame(update);
@@ -110,19 +119,27 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Platformları Çiz
-            ctx.fillStyle = "#4CAF50";
-            platforms.forEach(p => {
-                ctx.fillRect(p.x, p.y, p.w, 20);
-                ctx.strokeStyle = "#2E7D32";
-                ctx.strokeRect(p.x, p.y, p.w, 20);
-            });
+            // Arkaplan Bulutları (Basit)
+            ctx.fillStyle = "white";
+            ctx.beginPath(); ctx.arc(100, 100, 30, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(250, 150, 40, 0, Math.PI*2); ctx.fill();
 
-            // Karakteri Çiz (Noob Renkleri)
-            ctx.fillStyle = "#FFD500"; // Kafa
-            ctx.fillRect(px + 5, py, 20, 20);
-            ctx.fillStyle = "#0059B3"; // Gövde
-            ctx.fillRect(px, py + 20, 30, 20);
+            // Platformları Çiz
+            ctx.fillStyle = "#4CAF50"; // Roblox Yeşili
+            for (let p of platforms) {
+                ctx.fillRect(p.x, p.y, p.w, p.h);
+                ctx.strokeStyle = "#2E7D32";
+                ctx.lineWidth = 3;
+                ctx.strokeRect(p.x, p.y, p.w, p.h);
+            }
+
+            // Karakter (Roblox Noob)
+            // Kafa
+            ctx.fillStyle = "#FFD500";
+            ctx.fillRect(player.x + 5, player.y, 20, 15);
+            // Gövde
+            ctx.fillStyle = "#0059B3";
+            ctx.fillRect(player.x, player.y + 15, 30, 25);
         }
 
         update();

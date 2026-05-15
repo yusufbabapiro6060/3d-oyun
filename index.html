@@ -3,84 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Roblox Obby Fix</title>
+    <title>Mily Obby Final</title>
     <style>
         body { margin: 0; overflow: hidden; background: #87CEEB; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; }
+        canvas { display: block; background: linear-gradient(#87CEEB, #E0F7FA); }
         
-        /* KONTROL PANELİ */
-        #controls { position: absolute; bottom: 20px; width: 100%; display: flex; justify-content: space-between; padding: 0 20px; box-sizing: border-box; z-index: 1000; }
-        .btn { width: 70px; height: 70px; background: rgba(255,255,255,0.4); border: 3px solid white; border-radius: 15px; color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; user-select: none; }
-        #jump-btn { background: rgba(255,165,0,0.6); width: 90px; height: 90px; border-radius: 50%; font-size: 20px; }
-        
-        #ui { position: absolute; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 2px 2px #000; pointer-events: none; }
+        /* BUTONLAR - EKRANIN EN ÜSTÜNDE */
+        #controls { position: absolute; bottom: 30px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; z-index: 9999; }
+        .move-btns { display: flex; gap: 15px; }
+        .btn { 
+            width: 80px; height: 80px; background: rgba(255,255,255,0.6); 
+            border: 4px solid #fff; border-radius: 20px; 
+            display: flex; justify-content: center; align-items: center; 
+            font-size: 30px; font-weight: bold; color: #333;
+            user-select: none; -webkit-user-select: none;
+        }
+        #jump-btn { 
+            background: #FF9800; color: white; width: 100px; height: 100px; border-radius: 50%; border: 5px solid #fff; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
     </style>
 </head>
 <body>
-    <div id="ui">BUTONLARLA OYNA (Zıplama Turuncu Buton)</div>
-    
+
     <div id="controls">
-        <div style="display: flex; gap: 10px;">
-            <div class="btn" id="left-btn">←</div>
-            <div class="btn" id="forward-btn">↑</div>
-            <div class="btn" id="right-btn">→</div>
+        <div class="move-btns">
+            <div class="btn" id="btnL">←</div>
+            <div class="btn" id="btnR">→</div>
         </div>
-        <div class="btn" id="jump-btn">JUMP</div>
+        <div class="btn" id="jump-btn">UP</div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <canvas id="game"></canvas>
+
     <script>
-        const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: false }); // Performans için kapalı
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.body.appendChild(renderer.domElement);
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
 
-        scene.add(new THREE.AmbientLight(0xffffff, 1));
+        // OYUN AYARLARI
+        let px = 50, py = 300, vy = 0, speed = 0;
+        let gravity = 0.5;
+        let jumpPower = -12;
+        let isGrounded = false;
 
-        // Platformlar
-        const platforms = [];
-        function addBox(x,y,z,w,d,c) {
-            const m = new THREE.Mesh(new THREE.BoxGeometry(w,1,d), new THREE.MeshBasicMaterial({color:c}));
-            m.position.set(x,y,z); scene.add(m); platforms.push(m);
+        // PLATFORMLAR (x, y, genişlik)
+        const platforms = [
+            {x: 0, y: 500, w: 200},
+            {x: 250, y: 400, w: 150},
+            {x: 500, y: 300, w: 150},
+            {x: 750, y: 450, w: 150},
+            {x: 1000, y: 350, w: 200}
+        ];
+
+        // KONTROLLER
+        const keys = { L: false, R: false };
+
+        // ZIPLAMA FONKSİYONU (DOĞRUDAN TETİKLENİR)
+        function doJump() {
+            if (isGrounded) {
+                vy = jumpPower;
+                isGrounded = false;
+            }
         }
-        addBox(0,0,0,5,5,0x3a9d23); addBox(0,1.5,-8,3,3,0xff0000); addBox(4,3,-15,3,3,0x0000ff);
 
-        // Karakter
-        const player = new THREE.Mesh(new THREE.BoxGeometry(0.7,1.5,0.7), new THREE.MeshBasicMaterial({color:0xffff00}));
-        player.position.y = 2; scene.add(player);
+        // DOKUNMATİK OLAYLARI
+        document.getElementById("btnL").ontouchstart = (e) => { e.preventDefault(); keys.L = true; };
+        document.getElementById("btnL").ontouchend = () => keys.L = false;
+        
+        document.getElementById("btnR").ontouchstart = (e) => { e.preventDefault(); keys.R = true; };
+        document.getElementById("btnR").ontouchend = () => keys.R = false;
 
-        let vy = 0, grounded = false, move = {f:0, l:0, r:0};
-
-        // Kontroller
-        const setBtn = (id, key, val) => {
-            const b = document.getElementById(id);
-            b.ontouchstart = (e) => { e.preventDefault(); if(key==='j'){ if(grounded){vy=0.18; grounded=false;} } else move[key]=val; };
-            b.ontouchend = (e) => { e.preventDefault(); if(key!=='j') move[key]=0; };
+        document.getElementById("jump-btn").ontouchstart = (e) => {
+            e.preventDefault();
+            doJump();
         };
-        setBtn('left-btn', 'l', 0.1); setBtn('right-btn', 'r', 0.1); setBtn('forward-btn', 'f', 0.1); setBtn('jump-btn', 'j', 0);
 
-        function animate() {
-            requestAnimationFrame(animate);
-            vy -= 0.009; player.position.y += vy;
-            player.position.z -= move.f; player.position.x -= move.l; player.position.x += move.r;
+        function update() {
+            // Hareket
+            if (keys.L) speed = -5;
+            else if (keys.R) speed = 5;
+            else speed = 0;
 
-            grounded = false;
+            px += speed;
+            vy += gravity;
+            py += vy;
+
+            // Platform Çarpışması
+            isGrounded = false;
             platforms.forEach(p => {
-                if(Math.abs(player.position.x-p.position.x)<p.geometry.parameters.width/2+0.3 && 
-                   Math.abs(player.position.z-p.position.z)<p.geometry.parameters.depth/2+0.3 && 
-                   player.position.y > p.position.y && player.position.y < p.position.y+1.2) {
-                    player.position.y = p.position.y + 1; vy = 0; grounded = true;
+                if (px + 30 > p.x && px < p.x + p.w && py + 40 > p.y && py + 40 < p.y + 20 && vy >= 0) {
+                    py = p.y - 40;
+                    vy = 0;
+                    isGrounded = true;
                 }
             });
 
-            if(player.position.y < -10) { player.position.set(0,5,0); vy=0; }
-            camera.position.set(player.position.x, player.position.y+5, player.position.z+10);
-            camera.lookAt(player.position);
-            renderer.render(scene, camera);
+            // Düştüyse başa dön
+            if (py > canvas.height) { px = 50; py = 300; vy = 0; }
+
+            draw();
+            requestAnimationFrame(update);
         }
-        animate();
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Platformları Çiz
+            ctx.fillStyle = "#4CAF50";
+            platforms.forEach(p => {
+                ctx.fillRect(p.x, p.y, p.w, 20);
+                ctx.strokeStyle = "#2E7D32";
+                ctx.strokeRect(p.x, p.y, p.w, 20);
+            });
+
+            // Karakteri Çiz (Noob Renkleri)
+            ctx.fillStyle = "#FFD500"; // Kafa
+            ctx.fillRect(px + 5, py, 20, 20);
+            ctx.fillStyle = "#0059B3"; // Gövde
+            ctx.fillRect(px, py + 20, 30, 20);
+        }
+
+        update();
     </script>
 </body>
 </html>

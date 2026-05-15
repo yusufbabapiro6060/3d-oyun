@@ -3,24 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Mily Racer</title>
+    <title>Mily Drift Racer</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #333; touch-action: none; font-family: sans-serif; }
-        canvas { display: block; width: 100vw; height: 100vh; }
+        body { margin: 0; overflow: hidden; background: #222; touch-action: none; font-family: 'Arial Black', sans-serif; }
+        canvas { display: block; }
         #ui { 
-            position: absolute; top: 20px; width: 100%; text-align: center; 
-            color: white; font-size: 24px; font-weight: bold; 
-            text-shadow: 2px 2px #000; pointer-events: none; 
+            position: absolute; top: 10px; width: 100%; text-align: center; 
+            color: #f1c40f; font-size: 26px; font-weight: bold; 
+            text-shadow: 2px 2px #000; pointer-events: none; z-index: 10;
         }
         #controls {
-            position: absolute; bottom: 40px; width: 100%; 
+            position: absolute; bottom: 30px; width: 100%; 
             display: flex; justify-content: space-around; z-index: 100;
         }
         .btn {
-            width: 100px; height: 80px; background: rgba(255,255,255,0.2);
-            border: 3px solid white; border-radius: 15px;
+            width: 110px; height: 90px; background: rgba(0,0,0,0.6);
+            border: 4px solid #f1c40f; border-radius: 20px;
             display: flex; justify-content: center; align-items: center;
-            font-size: 40px; color: white; user-select: none;
+            font-size: 50px; color: #f1c40f; user-select: none;
         }
     </style>
 </head>
@@ -33,10 +33,10 @@
         <div class="btn" id="rBtn">→</div>
     </div>
 
-    <canvas id="roadCanvas"></canvas>
+    <canvas id="game"></canvas>
 
     <script>
-        const canvas = document.getElementById("roadCanvas");
+        const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
         const scoreEl = document.getElementById("score");
 
@@ -47,74 +47,54 @@
         window.addEventListener('resize', resize);
         resize();
 
-        // Oyun Ayarları
         let score = 0;
-        let gameSpeed = 5;
+        let speed = 6;
         let gameOver = false;
+        let roadOffset = 0;
 
-        // Oyuncu Arabası (Dodge/BMW Tarzı)
-        let player = {
-            x: canvas.width / 2 - 25,
-            y: canvas.height - 180,
-            w: 50,
-            h: 90,
-            color: "#3498db" // Mavi spor araba
-        };
-
+        // Senin Araban (Spor Araba)
+        let player = { x: canvas.width/2 - 30, y: canvas.height - 180, w: 60, h: 100 };
         let traffic = [];
-        let moveL = false;
-        let moveR = false;
+        let moveL = false, moveR = false;
 
-        // Kontroller
-        const bind = (id, state) => {
+        const bind = (id, s) => {
             const el = document.getElementById(id);
-            el.addEventListener('touchstart', (e) => { e.preventDefault(); if(id==='lBtn') moveL = true; else moveR = true; });
-            el.addEventListener('touchend', (e) => { e.preventDefault(); if(id==='lBtn') moveL = false; else moveR = false; });
+            el.ontouchstart = (e) => { e.preventDefault(); if(id==='lBtn') moveL = true; else moveR = true; };
+            el.ontouchend = (e) => { e.preventDefault(); if(id==='lBtn') moveL = false; else moveR = false; };
         };
         bind('lBtn'); bind('rBtn');
 
-        function createTraffic() {
-            if (Math.random() > 0.97) {
-                let lanes = [canvas.width*0.2, canvas.width*0.4, canvas.width*0.6, canvas.width*0.8];
-                let lane = lanes[Math.floor(Math.random() * lanes.length)];
-                traffic.push({
-                    x: lane - 25,
-                    y: -100,
-                    w: 50,
-                    h: 90,
-                    color: `hsl(${Math.random() * 360}, 70%, 50%)`
-                });
+        function addCar() {
+            if (Math.random() > 0.96) {
+                let xPos = Math.random() * (canvas.width - 80) + 10;
+                traffic.push({ x: xPos, y: -120, w: 60, h: 100, color: `hsl(${Math.random()*360}, 60%, 50%)` });
             }
         }
 
         function update() {
             if (gameOver) return;
 
-            // Oyuncu Hareketi
-            if (moveL && player.x > 20) player.x -= 7;
-            if (moveR && player.x < canvas.width - 70) player.x += 7;
+            roadOffset += speed;
+            if (roadOffset > 60) roadOffset = 0;
 
-            // Trafik Hareketi
-            createTraffic();
-            traffic.forEach((car, index) => {
-                car.y += gameSpeed;
+            if (moveL && player.x > 10) player.x -= 8;
+            if (moveR && player.x < canvas.width - 70) player.x += 8;
 
-                // Çarpışma Kontrolü
+            addCar();
+            traffic.forEach((car, i) => {
+                car.y += speed;
+                // Çarpışma
                 if (player.x < car.x + car.w && player.x + player.w > car.x &&
                     player.y < car.y + car.h && player.y + player.h > car.y) {
                     gameOver = true;
-                    setTimeout(() => {
-                        alert("Kaza Yaptın! Skor: " + score);
-                        location.reload();
-                    }, 10);
+                    alert("KAZA YAPILDI! SKORUN: " + score);
+                    location.reload();
                 }
-
-                // Ekrandan çıkan araçları sil
                 if (car.y > canvas.height) {
-                    traffic.splice(index, 1);
+                    traffic.splice(i, 1);
                     score++;
                     scoreEl.textContent = score;
-                    if(score % 10 === 0) gameSpeed += 0.5; // Giderek hızlanır
+                    speed += 0.1; // Giderek hızlanır
                 }
             });
 
@@ -123,40 +103,34 @@
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            // Asfalt ve Yol Çizgileri
-            ctx.fillStyle = "#444";
+            ctx.fillStyle = "#333"; // Asfalt
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            ctx.strokeStyle = "white";
+
+            // Yol Çizgileri
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 6;
             ctx.setLineDash([40, 20]);
-            ctx.lineWidth = 5;
+            ctx.lineDashOffset = -roadOffset;
             ctx.beginPath();
-            ctx.moveTo(canvas.width / 2, 0);
-            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.moveTo(canvas.width/2, 0); ctx.lineTo(canvas.width/2, canvas.height);
             ctx.stroke();
 
-            // Oyuncu Arabasını Çiz (Spor Araba Tasarımı)
-            ctx.fillStyle = player.color;
-            ctx.fillRect(player.x, player.y, player.w, player.h); // Gövde
-            ctx.fillStyle = "#000";
-            ctx.fillRect(player.x - 5, player.y + 10, 5, 20); // Tekerlekler
-            ctx.fillRect(player.x + 50, player.y + 10, 5, 20);
-            ctx.fillRect(player.x - 5, player.y + 60, 5, 20);
-            ctx.fillRect(player.x + 50, player.y + 60, 5, 20);
-            ctx.fillStyle = "#fff"; // Ön cam
-            ctx.fillRect(player.x + 5, player.y + 15, 40, 15);
+            // Senin Araban
+            ctx.fillStyle = "#e74c3c"; // Kırmızı Dodge
+            ctx.fillRect(player.x, player.y, player.w, player.h); 
+            ctx.fillStyle = "#000"; // Camlar
+            ctx.fillRect(player.x+5, player.y+20, 50, 20);
+            ctx.fillStyle = "yellow"; // Farlar
+            ctx.fillRect(player.x+5, player.y, 10, 5); ctx.fillRect(player.x+45, player.y, 10, 5);
 
-            // Trafik Araçlarını Çiz
+            // Trafikteki Arabalar
             traffic.forEach(car => {
                 ctx.fillStyle = car.color;
                 ctx.fillRect(car.x, car.y, car.w, car.h);
-                ctx.fillStyle = "#333"; // Camlar
-                ctx.fillRect(car.x + 5, car.y + 60, 40, 15);
+                ctx.fillStyle = "black";
+                ctx.fillRect(car.x+5, car.y+60, 50, 20);
             });
         }
-
         update();
     </script>
 </body>

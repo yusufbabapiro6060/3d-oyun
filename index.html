@@ -3,21 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Mily Highway Racer</title>
+    <title>Mily Highway Racer - Fix</title>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; font-family: 'Arial Black', sans-serif; }
+        body { margin: 0; padding: 0; overflow: hidden; background: #000; touch-action: none; font-family: sans-serif; }
         canvas { display: block; width: 100vw; height: 100vh; }
-        
-        /* GÖSTERGELER */
         #ui { 
             position: absolute; top: 20px; width: 100%; display: flex; justify-content: space-around;
-            color: #fff; font-size: 20px; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; 
+            color: #fff; font-size: 20px; font-weight: bold; text-shadow: 2px 2px 4px #000; pointer-events: none; z-index: 10; 
         }
-        .stat { background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 10px; border: 2px solid #ff4757; }
-        
-        /* KONTROLLER */
+        .stat { background: rgba(0,0,0,0.6); padding: 5px 15px; border-radius: 10px; border: 2px solid #ff4500; }
         #controls { position: absolute; bottom: 40px; width: 100%; display: flex; justify-content: space-between; padding: 0 30px; box-sizing: border-box; z-index: 100; }
-        .btn { width: 90px; height: 90px; background: rgba(255,255,255,0.2); border: 4px solid #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 40px; color: white; user-select: none; }
+        .btn { width: 85px; height: 85px; background: rgba(255,255,255,0.2); border: 4px solid #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 40px; color: white; user-select: none; }
         #nitro-btn { background: rgba(255, 69, 0, 0.6); border-color: #ff4500; font-size: 16px; font-weight: bold; }
     </style>
 </head>
@@ -45,24 +41,16 @@
         function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
         window.addEventListener('resize', resize); resize();
 
-        // Oyun Ayarları
-        let score = 0;
-        let speed = 120; // km/h başlangıç
-        let baseSpeed = 12; // Oyun içi motor hızı
-        let currentSpeed = baseSpeed;
-        let pos = 0; // Yol konumu
-        let gameOver = false;
-        let nitroActive = false;
+        let score = 0, speed = 120, baseSpeed = 10, currentSpeed = baseSpeed;
+        let pos = 0, gameOver = false, nitroActive = false;
 
-        // Oyuncu Arabası (Dodge Challenger Tarzı Kırmızı)
-        let playerX = 0; // -1 (sol şerit) ile 1 (sağ şerit) arası
+        // Oyuncu Arabası (-1 Sol, 0 Orta, 1 Sağ şerit gibi düşün)
+        let playerX = 0; 
         let moveL = false, moveR = false;
 
-        // Trafik Araçları
         let traffic = [];
         let nextCarTime = 0;
 
-        // Kontroller
         const bind = (id, start, end) => {
             const el = document.getElementById(id);
             el.addEventListener('touchstart', (e) => { e.preventDefault(); start(); }, {passive: false});
@@ -71,55 +59,53 @@
         
         bind('lBtn', () => moveL = true, () => moveL = false);
         bind('rBtn', () => moveR = true, () => moveR = false);
-        bind('nitro-btn', () => { nitroActive = true; }, () => { nitroActive = false; });
+        bind('nitro-btn', () => nitroActive = true, () => nitroActive = false);
 
         function update() {
             if (gameOver) return;
 
-            // Hız ve Nitro Ayarı
             if (nitroActive) {
-                currentSpeed = THREE_Lerp(currentSpeed, baseSpeed * 1.8, 0.1);
-                speed = THREE_Lerp(speed, 240, 0.1);
+                currentSpeed = lerp(currentSpeed, baseSpeed * 1.8, 0.1);
+                speed = lerp(speed, 230, 0.1);
             } else {
-                currentSpeed = THREE_Lerp(currentSpeed, baseSpeed, 0.1);
-                speed = THREE_Lerp(speed, 120 + Math.min(score * 2, 60), 0.1);
+                currentSpeed = lerp(currentSpeed, baseSpeed, 0.1);
+                speed = lerp(speed, 120 + Math.min(score * 0.5, 60), 0.1);
             }
             speedoEl.textContent = Math.floor(speed);
 
             pos += currentSpeed;
 
-            // Oyuncu Hareketi
-            if (moveL && playerX > -1.2) playerX -= 0.05;
-            if (moveR && playerX < 1.2) playerX += 0.05;
+            if (moveL && playerX > -1.0) playerX -= 0.06;
+            if (moveR && playerX < 1.0) playerX += 0.06;
 
-            // Trafik Üretme
+            // Trafik Üretimi (3 Net Şerit: -0.7, 0, 0.7)
             nextCarTime -= currentSpeed;
             if (nextCarTime <= 0) {
+                let lanes = [-0.7, 0, 0.7];
+                let chosenLane = lanes[Math.floor(Math.random() * lanes.length)];
                 traffic.push({
-                    targetX: (Math.random() * 2.2) - 1.1, // Rastgele şerit
-                    z: 1000, // Uzaklık
-                    speed: 3 + Math.random() * 4,
-                    color: Math.random() > 0.5 ? "#1e3799" : "#2f3542" // BMW Mavisi veya Siyah araçlar
+                    targetX: chosenLane,
+                    z: 800,
+                    speed: 3 + Math.random() * 3,
+                    color: Math.random() > 0.5 ? "#1e3799" : "#2f3542"
                 });
-                nextCarTime = 150 + Math.random() * 150;
+                nextCarTime = 180 + Math.random() * 150;
             }
 
-            // Trafiği Güncelle
             traffic.forEach((car, idx) => {
                 car.z -= currentSpeed - car.speed;
 
-                // Çarpışma Testi (Araba yakına geldiğinde)
-                if (car.z < 100 && car.z > 30) {
-                    if (Math.abs(playerX - car.targetX) < 0.35) {
+                // ESNEK HITBOX: Sadece araba çok yakındayken ve tam üst üste binerse kaza olur
+                if (car.z < 80 && car.z > 20) {
+                    if (Math.abs(playerX - car.targetX) < 0.22) { // 0.35'ten 0.22'ye düşürüldü (Çok daha esnek)
                         gameOver = true;
                         setTimeout(() => {
-                            alert("OTOBANDA KAZA! Skorun: " + score);
+                            alert("KAZA YAPILDI! Skor: " + score);
                             location.reload();
                         }, 10);
                     }
                 }
 
-                // Arabayı geçtik
                 if (car.z <= 0) {
                     traffic.splice(idx, 1);
                     score += 10;
@@ -132,107 +118,96 @@
         }
 
         function draw() {
-            // Gökyüzü ve Gece Atmosferi
+            // Gece Gökyüzü
             let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            grad.addColorStop(0, '#0a1128');
-            grad.addColorStop(0.5, '#1c2541');
-            grad.addColorStop(1, '#3a506b');
+            grad.addColorStop(0, '#0f172a');
+            grad.addColorStop(1, '#1e293b');
             ctx.fillStyle = grad;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            let horizon = canvas.height * 0.45; // Ufuk çizgisi
+            let horizon = canvas.height * 0.45;
 
-            // Yol Dilimlerini Çizme (3D Efekti)
-            for (let i = canvas.height; i > horizon; i -= 4) {
-                let z = 1 / (i - horizon); // Derinlik hesabı
-                let roadWidth = 600 * z * canvas.width;
+            // SEYREK YOL ÇİZGİLERİ
+            for (let i = canvas.height; i > horizon; i -= 8) { // 4'ten 8'e çıkarıldı, çizgiler azaldı
+                let z = 1 / (i - horizon);
+                let roadWidth = 550 * z * canvas.width;
                 let centerX = canvas.width / 2;
 
-                // Çizgilerin ileri geri kayma efekti
-                let stripColor = (Math.floor((pos + (i * 0.5)) / 40) % 2 === 0);
+                let stripColor = (Math.floor((pos + (i * 0.4)) / 60) % 2 === 0); // Akış sakinleştirildi
 
-                ctx.fillStyle = stripColor ? "#333" : "#3c3c3c"; // Asfalt tonları
-                ctx.fillRect(centerX - roadWidth/2, i, roadWidth, 4);
+                ctx.fillStyle = stripColor ? "#222" : "#282828";
+                ctx.fillRect(centerX - roadWidth/2, i, roadWidth, 8);
 
-                // Yan Güvenlik Şeritleri (Kırmızı-Beyaz)
-                ctx.fillStyle = stripColor ? "#fff" : "#ff4757";
-                ctx.fillRect(centerX - roadWidth/2 - 10 * z * canvas.width, i, 10 * z * canvas.width, 4);
-                ctx.fillRect(centerX + roadWidth/2, i, 10 * z * canvas.width, 4);
+                // Kenar Çizgileri
+                ctx.fillStyle = "#ff4500";
+                ctx.fillRect(centerX - roadWidth/2 - 5*z*canvas.width, i, 5*z*canvas.width, 8);
+                ctx.fillRect(centerX + roadWidth/2, i, 5*z*canvas.width, 8);
 
-                // Kesik Yol Çizgileri
+                // Şerit Ayırıcı İç Çizgiler (Seyrek)
                 if (stripColor) {
-                    ctx.fillStyle = "#fff";
-                    ctx.fillRect(centerX - 2 * z * canvas.width, i, 4 * z * canvas.width, 4);
+                    ctx.fillStyle = "rgba(255,255,255,0.6)";
+                    ctx.fillRect(centerX - roadWidth/6, i, 2*z*canvas.width, 8);
+                    ctx.fillRect(centerX + roadWidth/6, i, 2*z*canvas.width, 8);
                 }
             }
 
-            // Trafikteki Araçları Çiz (Uzaktakiler küçük, yakındakiler büyük)
+            // Trafik Çizimi
             traffic.forEach(car => {
                 if (car.z <= 0) return;
                 let scale = 1 / (car.z * 0.002);
-                let cx = canvas.width / 2 + (car.targetX * 250 * (1 / (car.z * 0.001)));
+                let cx = canvas.width / 2 + (car.targetX * 200 * (1 / (car.z * 0.001)));
                 let cy = horizon + (1 / car.z) * 15000;
 
-                let carW = 60 * scale;
-                let carH = 40 * scale;
+                let carW = 50 * scale;
+                let carH = 35 * scale;
 
                 if (cy > horizon && cy < canvas.height) {
-                    // Araba Kasası (BMW / Diğer sedanlar)
                     ctx.fillStyle = car.color;
                     ctx.fillRect(cx - carW/2, cy - carH, carW, carH);
-                    
-                    // Camlar ve Arka Lambalar
                     ctx.fillStyle = "#000";
-                    ctx.fillRect(cx - carW/3, cy - carH + (5*scale), (carW*2)/3, carH/3);
-                    ctx.fillStyle = "red"; // Arka stop lambaları
-                    ctx.fillRect(cx - carW/2 + 2, cy - carH/2, 8*scale, 4*scale);
-                    ctx.fillRect(cx + carW/2 - 10*scale, cy - carH/2, 8*scale, 4*scale);
+                    ctx.fillRect(cx - carW/3, cy - carH + (4*scale), (carW*2)/3, carH/3);
+                    ctx.fillStyle = "red";
+                    ctx.fillRect(cx - carW/2 + 2, cy - carH/2, 6*scale, 3*scale);
+                    ctx.fillRect(cx + carW/2 - 8*scale, cy - carH/2, 6*scale, 3*scale);
                 }
             });
 
-            // Oyuncunun Arabası (Dodge Challenger - En Önde Sabit)
-            let pScreenX = canvas.width / 2 + (playerX * (canvas.width * 0.35));
-            let pScreenY = canvas.height - 130;
-            let pW = 110;
-            let pH = 75;
+            // Oyuncu Arabası (Dodge Challenger)
+            let pScreenX = canvas.width / 2 + (playerX * (canvas.width * 0.3));
+            let pScreenY = canvas.height - 140;
+            let pW = 100, pH = 70;
 
-            // Tekerlekler
-            ctx.fillStyle = "#111";
-            ctx.fillRect(pScreenX - pW/2 + 5, pScreenY + pH - 20, 20, 20);
-            ctx.fillRect(pScreenX + pW/2 - 25, pScreenY + pH - 20, 20, 20);
-
-            // Dodge Gövde
-            ctx.fillStyle = "#ff4757"; // Agresif Kırmızı
+            // Gövde
+            ctx.fillStyle = "#e74c3c"; 
             ctx.fillRect(pScreenX - pW/2, pScreenY, pW, pH - 15);
             
-            // Tavan ve Arka Cam
-            ctx.fillStyle = "#2f3542";
+            // Tavan ve Cam
+            ctx.fillStyle = "#1e293b";
             ctx.fillRect(pScreenX - pW/3, pScreenY - 15, (pW*2)/3, 20);
-            ctx.fillStyle = "#000"; // Cam
+            ctx.fillStyle = "#000"; 
             ctx.fillRect(pScreenX - pW/4, pScreenY - 10, (pW/2), 12);
 
-            // Çift Yarış Çizgileri (Troll / Klasik Kaslı Araba Detayı)
+            // Yarış Çizgileri
             ctx.fillStyle = "#fff";
-            ctx.fillRect(pScreenX - 15, pScreenY, 6, pH - 15);
-            ctx.fillRect(pScreenX + 9, pScreenY, 6, pH - 15);
+            ctx.fillRect(pScreenX - 12, pScreenY, 5, pH - 15);
+            ctx.fillRect(pScreenX + 7, pScreenY, 5, pH - 15);
 
-            // Arka Farlar ve Egzoz Işığı (Nitro basınca parlar)
-            ctx.fillStyle = "red";
-            ctx.fillRect(pScreenX - pW/2 + 5, pScreenY + 10, 25, 8);
-            ctx.fillRect(pScreenX + pW/2 - 30, pScreenY + 10, 25, 8);
+            // Arka Stoplar
+            ctx.fillStyle = "#ff0000";
+            ctx.fillRect(pScreenX - pW/2 + 5, pScreenY + 10, 20, 6);
+            ctx.fillRect(pScreenX + pW/2 - 25, pScreenY + 10, 20, 6);
             
             if (nitroActive) {
-                // Egzoz alevi efekti
-                ctx.fillStyle = "#ffa500";
-                ctx.fillRect(pScreenX - pW/4, pScreenY + pH - 15, 10, 15);
-                ctx.fillRect(pScreenX + pW/4 - 10, pScreenY + pH - 15, 10, 15);
+                ctx.fillStyle = "#ff9f43";
+                ctx.fillRect(pScreenX - 25, pScreenY + pH - 15, 10, 15);
+                ctx.fillRect(pScreenX + 15, pScreenY + pH - 15, 10, 15);
             }
         }
 
-        // Basit Geçiş Yumuşatma Fonksiyonu
-        function THREE_Lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
+        function lerp(start, end, amt) { return (1 - amt) * start + amt * end; }
 
         update();
     </script>
 </body>
 </html>
+

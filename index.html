@@ -28,7 +28,6 @@
             box-shadow: 0 0 30px rgba(0, 255, 0, 0.2);
         }
 
-        /* Kamerayı tamamen gizliyoruz */
         #webcam {
             display: none;
         }
@@ -54,7 +53,7 @@
         <canvas id="canvas" width="1280" height="720"></canvas>
     </div>
 
-    <div id="status">Sistem Başlatılıyor... Lütfen Kameraya İzin Verin.</div>
+    <div id="status">Sistem Başlatılıyor... Lütfen Bekleyin.</div>
 
     <script>
         const video = document.getElementById('webcam');
@@ -62,45 +61,51 @@
         const ctx = canvas.getContext('2d');
         const statusText = document.getElementById('status');
 
+        // Çizimleri hafızada saklamak için gizli bir tuval (Canvas) oluşturuyoruz
+        const drawingCanvas = document.createElement('canvas');
+        drawingCanvas.width = 1280;
+        drawingCanvas.height = 720;
+        const dCtx = drawingCanvas.getContext('2d');
+
+        // Çizim kalemi ayarları
         let drawingColor = '#ff0055'; 
-        let drawingLineWidth = 6;
+        let drawingLineWidth = 8;
         let isDrawing = false;
         let lastX = 0; let lastY = 0;
 
+        // Mavi Kutu Ayarları
         let movableBox = {
-            x: 590, y: 310, width: 100, height: 100,
+            x: 590, y: 310, width: 140, height: 140,
             color: '#00e5ff', isDragging: false,
             dragStartX: 0, dragStartY: 0
         };
-
-        // Arka planı en başta siyah yapalım
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        
-        // Kutuyu ilk başta çizelim
-        ctx.fillStyle = movableBox.color;
-        ctx.fillRect(movableBox.x, movableBox.y, movableBox.width, movableBox.height);
 
         function getDistance(p1, p2) {
             return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
         }
 
         function drawScene(results) {
-            // Siyah arka planı ve kutuyu her karede güncelle
+            // 1. Ana ekranı tamamen siyah yap (Temizle)
             ctx.fillStyle = "black";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // 2. Hafızada saklanan tüm çizimleri ekrana yansıt
+            ctx.drawImage(drawingCanvas, 0, 0);
+
+            // 3. Mavi Kutuyu Çiz
             ctx.fillStyle = movableBox.color;
             ctx.fillRect(movableBox.x, movableBox.y, movableBox.width, movableBox.height);
             
             if (movableBox.isDragging) {
-                ctx.shadowBlur = 20;
+                ctx.shadowBlur = 25;
                 ctx.shadowColor = movableBox.color;
                 ctx.strokeStyle = 'white';
+                ctx.lineWidth = 4;
                 ctx.strokeRect(movableBox.x, movableBox.y, movableBox.width, movableBox.height);
                 ctx.shadowBlur = 0;
             }
 
+            // El algılandıysa pozisyonları kontrol et
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0];
                 
@@ -110,71 +115,85 @@
                 const middleTip = landmarks[12];
                 const pinkyTip = landmarks[20];
 
+                // Aynalanmış koordinatlar
                 const thumbX = (1 - thumbTip.x) * canvas.width;
                 const thumbY = thumbTip.y * canvas.height;
                 const indexX = (1 - indexTip.x) * canvas.width;
                 const indexY = indexTip.y * canvas.height;
 
+                // Parmaklar arası mesafeler
                 const pinchDistance = getDistance(thumbTip, indexTip);
-                const isPinching = pinchDistance < 0.05;
+                const isPinching = pinchDistance < 0.06; // Çimdik hassasiyeti
 
-                const isPalmOpen = getDistance(wrist, indexTip) > 0.4 && 
-                                    getDistance(wrist, middleTip) > 0.4 &&
-                                    getDistance(wrist, pinkyTip) > 0.4;
+                // El tamamen açık mı kontrolü (Silme hareketi için)
+                const isPalmOpen = getDistance(wrist, indexTip) > 0.35 && 
+                                    getDistance(wrist, middleTip) > 0.35 &&
+                                    getDistance(wrist, pinkyTip) > 0.35;
 
+                // --- HAREKETLER ---
+
+                // A) EKRANI TEMİZLE (Avuç içi açık)
                 if (isPalmOpen && !movableBox.isDragging) {
-                    ctx.fillStyle = "black";
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    dCtx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
                     statusText.innerText = "Ekran Temizlendi!";
+                    isDrawing = false;
                     return;
                 }
 
+                // B) TUTMA VE HAREKET ETTİRME (Çimdik Hareketi)
                 if (isPinching) {
                     if (!movableBox.isDragging) {
+                        // Eğer parmak uçları mavi kutunun içindeyse tut
                         if (indexX > movableBox.x && indexX < movableBox.x + movableBox.width &&
                             indexY > movableBox.y && indexY < movableBox.y + movableBox.height) {
                             
                             movableBox.isDragging = true;
                             movableBox.dragStartX = indexX - movableBox.x;
                             movableBox.dragStartY = indexY - movableBox.y;
-                            statusText.innerText = "Kutu Tutuldu!";
+                            statusText.innerText = "Mavi Kutu Tutuldu!";
                         }
                     } else {
+                        // Kutuyu hareket ettir
                         movableBox.x = indexX - movableBox.dragStartX;
                         movableBox.y = indexY - movableBox.dragStartY;
                     }
                     isDrawing = false; 
 
                 } else {
+                    // Parmakları açtıysa kutuyu bırak
                     if (movableBox.isDragging) {
                         movableBox.isDragging = false;
                         statusText.innerText = "Kutu Bırakıldı.";
                     }
 
-                    if (!movableBox.isDragging && indexTip.y < landmarks[6].y) {
+                    // C) ÖZGÜRCE ÇİZİM MODU (Sadece işaret parmağı havadaysa)
+                    // İşaret parmağı açık ve bükülmemişse (id 8, id 6'dan yukarıdaysa)
+                    if (indexTip.y < landmarks[6].y) {
                         if (!isDrawing) {
                             isDrawing = true;
                             lastX = indexX; lastY = indexY;
                         } else {
-                            ctx.beginPath();
-                            ctx.strokeStyle = drawingColor;
-                            ctx.lineWidth = drawingLineWidth;
-                            ctx.lineCap = 'round';
-                            ctx.moveTo(lastX, lastY);
-                            ctx.lineTo(indexX, indexY);
-                            ctx.stroke();
+                            // Çizgiyi hafızadaki tuvale (drawingCanvas) çiziyoruz ki silinmesin
+                            dCtx.beginPath();
+                            dCtx.strokeStyle = drawingColor;
+                            dCtx.lineWidth = drawingLineWidth;
+                            dCtx.lineCap = 'round';
+                            dCtx.moveTo(lastX, lastY);
+                            dCtx.lineTo(indexX, indexY);
+                            dCtx.stroke();
                             
                             lastX = indexX; lastY = indexY;
                         }
-                        statusText.innerText = "Çizim Yapılıyor...";
+                        statusText.innerText = "Çizim Yapılıyor... ✍️";
                     } else {
                         isDrawing = false;
-                        statusText.innerText = "Hareket Bekleniyor... (İşaret: Çiz, Çimdik: Tut, Avuç: Sil)";
+                        statusText.innerText = "Hareket Bekleniyor... (İşaret: Çiz, Çimdik: Kutuyu Tut, Avuç: Sil)";
                     }
                 }
 
+                // Parmağın ucundaki parlak küçük imleç
                 ctx.beginPath();
-                ctx.arc(indexX, indexY, 5, 0, 2 * Math.PI);
+                ctx.arc(indexX, indexY, 6, 0, 2 * Math.PI);
                 ctx.fillStyle = isPinching ? 'white' : drawingColor;
                 ctx.fill();
             } else {
@@ -183,7 +202,7 @@
             }
         }
 
-        // MediaPipe Hands Ayarları
+        // MediaPipe Ayarları
         const hands = new Hands({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
         });
@@ -191,25 +210,23 @@
         hands.setOptions({
             maxNumHands: 1,
             modelComplexity: 1,
-            minDetectionConfidence: 0.8,
-            minTrackingConfidence: 0.7
+            minDetectionConfidence: 0.75,
+            minTrackingConfidence: 0.75
         });
 
         hands.onResults(drawScene);
 
-        // --- GÜVENLİ VE GARANTİ KAMERA BAŞLATMA SİSTEMİ ---
+        // Kamera Başlatma Fonksiyonu
         async function startCamera() {
             try {
-                // Tarayıcıdan video izni istiyoruz
                 const stream = await navigator.mediaDevices.getUserMedia({
                     video: { width: 1280, height: 720 }
                 });
                 
                 video.srcObject = stream;
                 
-                // Kamera görüntüsü her yüklendiğinde el takibine gönderiyoruz
                 video.addEventListener('loadedmetadata', () => {
-                    statusText.innerText = "Sistem Hazır! Sihir Senin Ellerinde.";
+                    statusText.innerText = "Kamera Aktif! Elinizi Gösterin.";
                     
                     async function detectionLoop() {
                         if (!video.paused && !video.ended) {
@@ -223,13 +240,11 @@
             } catch (error) {
                 console.error("Kamera hatası:", error);
                 statusText.style.color = "red";
-                statusText.innerText = "Kamera İzni Alınamadı! Lütfen adres çubuğundaki kilit simgesinden izin verin.";
+                statusText.innerText = "Kamera İzni Eksik! Lütfen tarayıcı ayarlarından kamerayı açın.";
             }
         }
 
-        // Sayfa yüklenince kamerayı aç
         window.addEventListener('DOMContentLoaded', startCamera);
-
     </script>
 </body>
 </html>
